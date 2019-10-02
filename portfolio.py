@@ -1,14 +1,15 @@
 import pandas as pd
 import pandas_datareader.data as web
+from sqlalchemy import create_engine, MetaData, Table, select
 from functools import reduce
 
 class Portfolio:
-    path = "./data/"
+    path = "./data.sqlite3"
     def __init__(self, code, units):
         self.stocks = {}
         self.df = pd.DataFrame()
-        self.since = 2015
-        self.to = 2020
+        self.engine = create_engine('sqlite:///'+Portfolio.path)
+        self.db = Table('value', MetaData(), autoload=True, autoload_with=self.engine)
 
         for c, u in zip(code, units):
             self.stocks[c] = u
@@ -21,10 +22,17 @@ class Portfolio:
         self.stocks[code] = units
         
     def load(self, code):
-        data = web.DataReader(str(code)+'.JP', 'stooq')
-        close = data[['Close']]
-        close.columns = [code]
-        return close
+        sql = select([self.db.c.Date, self.db.c.Close]).where(self.db.c.Code==code)
+        result = pd.read_sql_query(sql, self.engine, index_col='Date', parse_dates=['Date'])
+
+        if(len(result) == 0):
+            data = web.DataReader(str(code)+'.JP', 'stooq')
+            data['Code'] = code
+            data.to_sql('value', self.engine, if_exists='append')
+
+            result = data[['Close']]
+        result.columns = [code]
+        return result
         
     def loadAll(self):
         p = []
@@ -65,4 +73,5 @@ def nikkei():
     close.columns = ['Nikkei225']
     return close
     
-    
+if __name__ == '__main__':
+    pf = Portfolio([9684], [100])
