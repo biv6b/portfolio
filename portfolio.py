@@ -1,4 +1,5 @@
 import pandas as pd
+import pandas_datareader.data as web
 from functools import reduce
 
 class Portfolio:
@@ -20,24 +21,22 @@ class Portfolio:
         self.stocks[code] = units
         
     def load(self, code):
-        c = [pd.read_csv(Portfolio.path+str(code)+"_"+str(year)+".csv",
-                         header=1, index_col=0, usecols=[0, 4],
-                         names=['date', code],
-                         parse_dates=True, encoding='shift-jis')
-             for year in range(self.since, self.to)]
-        return pd.concat(c)
+        data = web.DataReader(str(code)+'.JP', 'stooq')
+        close = data[['Close']]
+        close.columns = [code]
+        return close
         
     def loadAll(self):
         p = []
         for code in self.stocks.keys():
-            c = self.load(code)
-            p.append(c)
+            data = self.load(code)
+            p.append(data)
         self.df = reduce(lambda x, y: x.join(y, how='inner'), p)
        
     def add(self, code, units):
         if code not in self.stocks.keys():
-            c = self.load(code)
-            self.df.join(c, how='inner')
+            data = self.load(code)
+            self.df = self.df.join(data, how='inner')
         self.stocks[code] = units
 
     def remove(self, code):
@@ -61,6 +60,9 @@ class Portfolio:
 
 
 def nikkei():
-    n = pd.read_csv(Portfolio.path+"nikkei225.csv", header=9, index_col=0,
-                    names=['Date', 'Nikkei225'], parse_dates=True)
-    return n
+    data = web.DataReader('^NKX', 'stooq')
+    close = data[['Close']]
+    close.columns = ['Nikkei225']
+    return close
+    
+    
